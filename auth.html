@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Whiteboard App</title>
-    <!-- Tailwind CSS for clean styling -->
+    <title>Login - Study Whiteboard</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -48,13 +48,12 @@
     </div>
 
     <script>
-        // REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
-        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const SUPABASE_URL = 'https://yhpschomssrmqzjpvjim.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_me1RxGY1X5AJmF6x4bUvMw__SGGOZQb';
 
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Check if user is already logged in, redirect to index.html if they are
+        // Check if already logged in -> Go straight to whiteboard
         async function checkSession() {
             const { data: { session } } = await supabaseClient.auth.getSession();
             if (session) {
@@ -88,7 +87,6 @@
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Sign In';
             } else {
-                // Successful login -> Redirect to whiteboard
                 window.location.href = 'index.html';
             }
         });
