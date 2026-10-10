@@ -75,13 +75,23 @@ internal static class Program
             using var reader = DataReader.FromBuffer(request.Value);
             var bytes = new byte[request.Value.Length];
             reader.ReadBytes(bytes);
-            request.Respond();
             if (bytes.Length < 5) return;
             int type = bytes[0];
             double x = (bytes[1] | bytes[2] << 8) / 65535.0;
             double y = (bytes[3] | bytes[4] << 8) / 65535.0;
             var message = JsonSerializer.Serialize(new { type = type == 1 ? "start" : type == 3 ? "end" : "point", x, y });
             await Broadcast(message);
+            // Some Windows Bluetooth stacks throw when responding to a write that
+            // no longer requires a response. Do not let that prevent forwarding the stroke.
+            try
+            {
+                if (request.Option == GattWriteOption.WriteWithResponse)
+                    request.Respond();
+            }
+            catch (Exception responseError)
+            {
+                Console.WriteLine("BLE response warning (drawing was forwarded): " + responseError.Message);
+            }
         }
         catch (Exception ex) { Console.WriteLine("BLE packet error: " + ex.GetType().FullName + ": " + ex.ToString()); }
         finally { deferral.Complete(); }
