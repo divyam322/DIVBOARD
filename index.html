@@ -1549,6 +1549,44 @@ function refreshTiles(){
   });
 }
 
+/* ---------- phone pen bridge (local Bluetooth receiver) ---------- */
+const phoneBridgeBadge=document.createElement('div');
+phoneBridgeBadge.id='phoneBridgeBadge';
+phoneBridgeBadge.textContent='Phone pen: connecting…';
+phoneBridgeBadge.style.cssText='position:fixed;right:10px;top:10px;z-index:30;padding:7px 10px;border:1px solid #454545;border-radius:10px;background:#111;color:#bbb;font:12px Segoe UI,Arial,sans-serif;box-shadow:0 2px 8px #0008;pointer-events:none';
+document.body.appendChild(phoneBridgeBadge);
+let phoneSocket=null,phoneStroke=null,phoneReconnectTimer=null;
+function phoneBridgeStatus(text,color='#bbb'){phoneBridgeBadge.textContent=text;phoneBridgeBadge.style.color=color}
+function connectPhoneBridge(){
+  if(phoneSocket&&(phoneSocket.readyState===WebSocket.OPEN||phoneSocket.readyState===WebSocket.CONNECTING))return;
+  try{
+    phoneSocket=new WebSocket('ws://127.0.0.1:8765/');
+    phoneSocket.onopen=()=>phoneBridgeStatus('Phone pen: ready','#7ee787');
+    phoneSocket.onmessage=e=>{
+      let m;try{m=JSON.parse(e.data)}catch(_){return}
+      if(typeof m.x!=='number'||typeof m.y!=='number')return;
+      const p=world({clientX:m.x*innerWidth,clientY:m.y*innerHeight});
+      if(m.type==='start'){
+        if(drawing||instDrag||panStart)return;
+        phoneStroke={t:'stroke',pts:[p],color:'#ffffff',size:3.2/Math.max(.25,st.zoom),brush:'pen'};
+        drawing=phoneStroke;draw();return;
+      }
+      if(!phoneStroke||drawing!==phoneStroke)return;
+      const last=phoneStroke.pts[phoneStroke.pts.length-1];
+      if(Math.hypot(p.x-last.x,p.y-last.y)>.35)phoneStroke.pts.push(p);
+      if(m.type==='end'){
+        const o=phoneStroke;phoneStroke=null;drawing=null;
+        if(o.pts.length===1)o.pts.push({x:o.pts[0].x+.01,y:o.pts[0].y+.01});
+        P().objs.push(o);inkAdd(o);snapshot();draw();return;
+      }
+      draw();
+    };
+    phoneSocket.onerror=()=>phoneBridgeStatus('Phone pen: start receiver','#ffcc66');
+    phoneSocket.onclose=()=>{phoneBridgeStatus('Phone pen: receiver offline','#999');phoneSocket=null;clearTimeout(phoneReconnectTimer);phoneReconnectTimer=setTimeout(connectPhoneBridge,2500)};
+  }catch(_){phoneBridgeStatus('Phone pen: receiver offline','#999')}
+}
+connectPhoneBridge();
+
 /* ---------- start ---------- */
 pickBrush(st.brush);setColor(st.color);
 resize();updUI();setTool('pen');
