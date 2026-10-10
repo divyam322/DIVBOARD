@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Whiteboard App</title>
+    <!-- Tailwind CSS for clean styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-white flex items-center justify-center min-h-screen">
+
+    <div class="bg-slate-800 p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-700">
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-bold tracking-wide">Whiteboard Access</h1>
+            <p class="text-slate-400 text-sm mt-1">Please sign in to continue</p>
+        </div>
+
+        <!-- Error Message Container -->
+        <div id="error-msg" class="hidden bg-red-500/10 border border-red-500 text-red-400 p-3 rounded-lg text-sm mb-4"></div>
+
+        <!-- Login Form -->
+        <form id="login-form" class="space-y-4">
+            <div>
+                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Email Address</label>
+                <input type="email" id="email" required 
+                    class="w-full px-4 py-2.5 rounded-lg bg-slate-900 border border-slate-700 focus:border-indigo-500 focus:outline-none text-white text-sm"
+                    placeholder="name@example.com">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Password</label>
+                <input type="password" id="password" required 
+                    class="w-full px-4 py-2.5 rounded-lg bg-slate-900 border border-slate-700 focus:border-indigo-500 focus:outline-none text-white text-sm"
+                    placeholder="••••••••">
+            </div>
+
+            <button type="submit" id="submit-btn" 
+                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg transition duration-200 text-sm shadow-lg shadow-indigo-600/30">
+                Sign In
+            </button>
+        </form>
+
+        <div class="mt-6 text-center text-xs text-slate-500">
+            <p>Access is restricted. Accounts are managed by the administrator.</p>
+        </div>
+    </div>
+
+    <script>
+        // REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Check if user is already logged in, redirect to index.html if they are
+        async function checkSession() {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                window.location.href = 'index.html';
+            }
+        }
+        checkSession();
+
+        // Handle Login Submission
+        const form = document.getElementById('login-form');
+        const errorDiv = document.getElementById('error-msg');
+        const submitBtn = document.getElementById('submit-btn');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorDiv.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Signing in...';
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: email,
+                password: password,
+            });
+
+            if (error) {
+                errorDiv.textContent = error.message;
+                errorDiv.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Sign In';
+            } else {
+                // Successful login -> Redirect to whiteboard
+                window.location.href = 'index.html';
+            }
+        });
+    </script>
+</body>
+</html>
