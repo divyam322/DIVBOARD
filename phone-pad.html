@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>DIVBOARD Phone Pen</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:#fff;font:14px system-ui,Segoe UI,Arial;touch-action:none}
+#pad{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#top{position:fixed;top:env(safe-area-inset-top,0);left:0;right:0;z-index:2;display:flex;gap:8px;align-items:center;padding:10px;background:linear-gradient(#000b,transparent);touch-action:manipulation}
+button{border:1px solid #555;background:#181818;color:white;border-radius:12px;padding:10px 13px;font-weight:600}
+button:disabled{opacity:.5}
+#status{font-size:12px;color:#bbb;flex:1;min-width:0}
+#hint{position:fixed;bottom:calc(12px + env(safe-area-inset-bottom,0));left:0;right:0;text-align:center;color:#666;font-size:11px;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="pad"></canvas>
+<div id="top"><button id="connect">Connect to laptop</button><button id="clear">Clear</button><div id="status">Not connected · tap Connect first</div></div>
+<div id="hint">Black drawing pad · white ink · use your finger</div>
+<script>
+(()=> {
+'use strict';
+const SERVICE='9e7b1000-7c2d-4f8a-9a33-9b3a1d5e0001';
+const CHAR='9e7b1001-7c2d-4f8a-9a33-9b3a1d5e0001';
+const canvas=document.getElementById('pad'),ctx=canvas.getContext('2d',{alpha:false});
+const status=document.getElementById('status'),connectBtn=document.getElementById('connect');
+let device=null,characteristic=null,active=false,last=null,points=[],writeQueue=Promise.resolve(),dpr=1;
+function resize(){dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(innerWidth*dpr);canvas.height=Math.round(innerHeight*dpr);canvas.style.width=innerWidth+'px';canvas.style.height=innerHeight+'px';ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#000';ctx.fillRect(0,0,innerWidth,innerHeight);redraw()}
+function redraw(){ctx.fillStyle='#000';ctx.fillRect(0,0,innerWidth,innerHeight);ctx.strokeStyle='#fff';ctx.fillStyle='#fff';ctx.lineWidth=3.2;ctx.lineCap='round';ctx.lineJoin='round';for(const p of points){if(!p.length)continue;if(p.length===1){ctx.beginPath();ctx.arc(p[0].x*innerWidth,p[0].y*innerHeight,1.6,0,Math.PI*2);ctx.fill();continue}ctx.beginPath();ctx.moveTo(p[0].x*innerWidth,p[0].y*innerHeight);for(let i=1;i<p.length-1;i++){const m={x:(p[i].x+p[i+1].x)/2*innerWidth,y:(p[i].y+p[i+1].y)/2*innerHeight};ctx.quadraticCurveTo(p[i].x*innerWidth,p[i].y*innerHeight,m.x,m.y)}const q=p[p.length-1];ctx.lineTo(q.x*innerWidth,q.y*innerHeight);ctx.stroke()}}
+function packet(type,p){if(!characteristic)return;const x=Math.max(0,Math.min(65535,Math.round(p.x*65535))),y=Math.max(0,Math.min(65535,Math.round(p.y*65535)));const bytes=new Uint8Array([type,x&255,x>>8,y&255,y>>8]);writeQueue=writeQueue.then(()=>characteristic.writeValueWithoutResponse(bytes)).catch(e=>{status.textContent='Bluetooth write failed: '+e.message});}
+function normalized(e){const r=canvas.getBoundingClientRect();return{x:Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),y:Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))}}
+canvas.addEventListener('pointerdown',e=>{if(e.target!==canvas)return;e.preventDefault();canvas.setPointerCapture(e.pointerId);active=true;last=normalized(e);points.push([last]);packet(1,last);redraw()});
+canvas.addEventListener('pointermove',e=>{if(!active)return;e.preventDefault();const p=normalized(e);if(last&&Math.hypot((p.x-last.x)*innerWidth,(p.y-last.y)*innerHeight)<1.4)return;last=p;points[points.length-1].push(p);packet(2,p);redraw()});
+function end(e){if(!active)return;active=false;const p=normalized(e);packet(3,p);last=null}
+canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);
+document.getElementById('clear').onclick=()=>{points=[];redraw()};
+connectBtn.onclick=async()=>{if(!('bluetooth' in navigator)){status.textContent='Web Bluetooth unavailable. Open this page in Chrome on Android.';return}connectBtn.disabled=true;try{status.textContent='Choose DIVBOARD receiver on your laptop…';device=await navigator.bluetooth.requestDevice({filters:[{services:[SERVICE]}]});device.addEventListener('gattserverdisconnected',()=>{characteristic=null;status.textContent='Disconnected · tap Connect to reconnect';connectBtn.disabled=false});const server=await device.gatt.connect();const service=await server.getPrimaryService(SERVICE);characteristic=await service.getCharacteristic(CHAR);status.textContent='Bluetooth connected · write on this screen';connectBtn.textContent='Connected';}catch(e){status.textContent=(e.name==='NotFoundError'?'No receiver selected. Make sure the laptop receiver is running.':e.message);connectBtn.disabled=false}};
+addEventListener('resize',resize);resize();
+})();
+</script>
+</body>
+</html>
