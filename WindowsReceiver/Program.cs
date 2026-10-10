@@ -81,6 +81,8 @@ internal static class Program
             double y = (bytes[3] | bytes[4] << 8) / 65535.0;
             var message = JsonSerializer.Serialize(new { type = type == 1 ? "start" : type == 3 ? "end" : "point", x, y });
             await Broadcast(message);
+            if (type == 1)
+                Console.WriteLine($"BLE stroke started; connected whiteboard clients: {Clients.Count}");
             // Some Windows Bluetooth stacks throw when responding to a write that
             // no longer requires a response. Do not let that prevent forwarding the stroke.
             try
@@ -122,30 +124,48 @@ internal static class Program
 
     private static async Task AcceptWebSocket(HttpListenerContext context)
     {
+        WebSocket? socket = null;
+        Guid? id = null;
         try
         {
             var accepted = await context.AcceptWebSocketAsync(null);
-            var socket = accepted.WebSocket;
-            var id = Guid.NewGuid();
-            Clients[id] = socket;
+            socket = accepted.WebSocket;
+            id = Guid.NewGuid();
+            Clients[id.Value] = socket;
             Console.WriteLine("Whiteboard connected to local bridge.");
+
             var buffer = new byte[1024];
-            try
+            while (socket.State == WebSocketState.Open)
             {
-                while (socket.State == WebSocketState.Open)
+                WebSocketReceiveResult result;
+                try
                 {
-                    var result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-                    if (result.MessageType == WebSocketMessageType.Close) break;
+                    result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
                 }
-            }
-            finally
-            {
-                Clients.TryRemove(id, out _);
-                socket.Dispose();
-                Console.WriteLine("Whiteboard bridge disconnected.");
+                catch (WebSocketException)
+                {
+                    // Browsers can abort a localhost WebSocket while a page reloads
+                    // or reconnects. Treat this as a normal client disconnect.
+                    break;
+                }
+                catch (ObjectDisposedException)
+                {
+                    break;
+                }
+
+                if (result.MessageType == WebSocketMessageType.Close) break;
             }
         }
-        catch (Exception ex) { Console.WriteLine("WebSocket client error: " + ex.Message); }
+        catch (Exception ex)
+        {
+            Console.WriteLine("WebSocket accept error: " + ex.Message);
+        }
+        finally
+        {
+            if (id.HasValue) Clients.TryRemove(id.Value, out _);
+            socket?.Dispose();
+            if (id.HasValue) Console.WriteLine("Whiteboard bridge disconnected.");
+        }
     }
 
     private static async Task Broadcast(string json)
@@ -156,7 +176,11 @@ internal static class Program
             var socket = pair.Value;
             if (socket.State != WebSocketState.Open) { Clients.TryRemove(pair.Key, out _); continue; }
             try { await socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, CancellationToken.None); }
-            catch { Clients.TryRemove(pair.Key, out _); }
+            catch (Exception ex)
+            {
+                Clients.TryRemove(pair.Key, out _);
+                Console.WriteLine("Whiteboard send failed; removed disconnected client: " + ex.Message);
+            }
         }
     }
 }
