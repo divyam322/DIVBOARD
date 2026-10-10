@@ -456,8 +456,138 @@ function shapeDraw(c,o){
     case 'rrect':rrect(c,Math.min(x1,x2),Math.min(y1,y2),aw,ah,Math.min(aw,ah)*.2);break;
     case 'circle':case 'ellipse':c.ellipse(x1+w/2,y1+h/2,aw/2,ah/2,0,0,7);break;
     case 'semicircle':c.ellipse(x1+w/2,y1+h/2,aw/2,ah/2,0,Math.PI,0);c.closePath();break;
+    case 'line':c.moveTo(x1,y1);c.lineTo(x2,y2);break;
+    case 'arrow':c.moveTo(x1,y1);c.lineTo(x2,y2);head(c,x2,y2,Math.atan2(y2-y1,x2-x1),16);break;
+    case 'darrow':c.moveTo(x1,y1);c.lineTo(x2,y2);const a=Math.atan2(y2-y1,x2-x1);head(c,x2,y2,a,16);head(c,x1,y1,a+Math.PI,16);break;
+    case 'dotted':c.setLineDash([4,8]);c.moveTo(x1,y1);c.lineTo(x2,y2);c.setLineDash([]);break;
+    case 'dashed':c.setLineDash([12,8]);c.moveTo(x1,y1);c.lineTo(x2,y2);c.setLineDash([]);break;
   }
 }
+
+function drawObj(c,o){
+  c.save();c.strokeStyle=o.color;c.fillStyle=o.color;c.lineWidth=o.lw||4;c.lineCap='round';c.lineJoin='round';
+  if(o.type==='stroke') strokeBrush(c,o);
+  else if(o.type==='shape'){
+    shapeDraw(c,o);
+    if(o.fill&&!NOFILL.includes(o.s)){c.save();c.fillStyle=o.color;c.globalAlpha=.18;c.fill();c.restore()}
+    c.stroke();
+  }
+  c.restore();
+}
+
+function renderInk(){
+  const p=P();
+  ictx.save();ictx.clearRect(0,0,ink.width,ink.height);
+  ictx.scale(st.zoom,st.zoom);ictx.translate(p.px,p.py);
+  p.objs.forEach(o=>{if(!hideSet||!hideSet.has(o))drawObj(ictx,o)});
+  ictx.restore();
+  inkDirty=false;inkState={px:p.px,py:p.py,zoom:st.zoom,cur};
+}
+
+function draw(){
+  if(inkDirty||inkState.px!==P().px||inkState.py!==P().py||inkState.zoom!==st.zoom||inkState.cur!==cur) renderInk();
+  drawGrid();
+  ctx.drawImage(ink,0,0);
+  
+  // Draw active drawing live
+  if(drawing){
+    ctx.save();ctx.scale(st.zoom,st.zoom);ctx.translate(P().px,P().py);
+    drawObj(ctx,drawing);
+    ctx.restore();
+  }
+  
+  // Selection box / lasso visuals if active
+  if(lasso){
+    ctx.save();ctx.strokeStyle='#2f9bff';ctx.lineWidth=2/st.zoom;ctx.setLineDash([6,6]);
+    ctx.beginPath();lasso.forEach((pt,i)=>ctx[i?'lineTo':'moveTo'](pt.x*st.zoom+P().px,pt.y*st.zoom+P().py));ctx.closePath();
+    ctx.fillStyle='rgba(47,155,255,.1)';ctx.fill();ctx.stroke();ctx.restore();
+  }
+}
+
+/* ================= UI wiring & Event Listeners ================= */
+document.querySelectorAll('.btn[data-tool]').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('#dockMain .btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    st.tool=btn.dataset.tool;
+  };
+});
+
+// Popups handling
+document.querySelectorAll('.btn[data-pop]').forEach(btn=>{
+  btn.onclick=(e)=>{
+    e.stopPropagation();
+    const id=btn.dataset.pop;
+    const pop=$(id);
+    const isOpen=pop.classList.contains('show');
+    document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show'));
+    if(!isOpen) pop.classList.add('show');
+  };
+});
+
+document.querySelectorAll('.pop [data-close], .pop .x').forEach(el=>{
+  el.onclick=()=>el.closest('.pop').classList.remove('show');
+});
+
+// Close popups on outside click
+addEventListener('click',(e)=>{
+  if(!e.target.closest('.pop')&&!e.target.closest('.btn')) {
+    document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show'));
+  }
+});
+
+// Basic canvas event listeners for drawing / panning
+cv.addEventListener('pointerdown',(e)=>{
+  const w=world(e);
+  if(st.tool==='pan'){
+    panStart={x:e.clientX,y:e.clientY,px:P().px,py:P().py};
+  }else if(st.tool==='pen'){
+    drawing={type:'stroke',brush:st.brush,color:st.color,size:st.size,pts:[w]};
+  }else if(st.tool==='shape'){
+    drawing={type:'shape',s:st.shape,color:st.color,lw:st.lw,fill:st.fill,x1:w.x,y1:w.y,x2:w.x,y2:w.y};
+  }
+});
+
+cv.addEventListener('pointermove',(e)=>{
+  const w=world(e);
+  if(panStart){
+    P().px=panStart.px+(e.clientX-panStart.x);
+    P().py=panStart.py+(e.clientY-panStart.y);
+    inkDirty=true;draw();
+  }else if(drawing){
+    if(drawing.type==='stroke') drawing.pts.push(w);
+    else if(drawing.type==='shape'){drawing.x2=w.x;drawing.y2=w.y;}
+    draw();
+  }
+});
+
+cv.addEventListener('pointerup',()=>{
+  if(panStart) panStart=null;
+  if(drawing){
+    P().objs.push(drawing);
+    drawing=null;
+    snapshot();
+    inkDirty=true;draw();
+  }
+});
+
+// Page controls
+$('btnAdd').onclick=()=>{
+  pages.splice(cur+1,0,newPage());
+  cur++;
+  inkDirty=true;draw();updUI();
+};
+$('btnPrev').onclick=()=>{if(cur>0){cur--;inkDirty=true;draw();updUI()}};
+$('btnNext').onclick=()=>{if(cur<pages.length-1){cur++;inkDirty=true;draw();updUI()}};
+$('btnUndo').onclick=undo;
+$('btnRedo').onclick=redo;
+
+// Menu actions
+$('mClear').onclick=()=>{P().objs=[];snapshot();inkDirty=true;draw();updUI();document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show'))};
+$('mNewBoard').onclick=()=>{if(confirm('Reset everything?')){pages=[newPage()];cur=0;inkDirty=true;draw();updUI();document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show'))}};
+
+resize();
+updUI();
 </script>
 </body>
 </html>
