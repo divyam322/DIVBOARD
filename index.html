@@ -489,14 +489,12 @@ function draw(){
   drawGrid();
   ctx.drawImage(ink,0,0);
   
-  // Draw active drawing live
   if(drawing){
     ctx.save();ctx.scale(st.zoom,st.zoom);ctx.translate(P().px,P().py);
     drawObj(ctx,drawing);
     ctx.restore();
   }
   
-  // Selection box / lasso visuals if active
   if(lasso){
     ctx.save();ctx.strokeStyle='#2f9bff';ctx.lineWidth=2/st.zoom;ctx.setLineDash([6,6]);
     ctx.beginPath();lasso.forEach((pt,i)=>ctx[i?'lineTo':'moveTo'](pt.x*st.zoom+P().px,pt.y*st.zoom+P().py));ctx.closePath();
@@ -513,7 +511,6 @@ document.querySelectorAll('.btn[data-tool]').forEach(btn=>{
   };
 });
 
-// Popups handling
 document.querySelectorAll('.btn[data-pop]').forEach(btn=>{
   btn.onclick=(e)=>{
     e.stopPropagation();
@@ -529,14 +526,12 @@ document.querySelectorAll('.pop [data-close], .pop .x').forEach(el=>{
   el.onclick=()=>el.closest('.pop').classList.remove('show');
 });
 
-// Close popups on outside click
 addEventListener('click',(e)=>{
   if(!e.target.closest('.pop')&&!e.target.closest('.btn')) {
     document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show'));
   }
 });
 
-// Basic canvas event listeners for drawing / panning
 cv.addEventListener('pointerdown',(e)=>{
   const w=world(e);
   if(st.tool==='pan'){
@@ -571,7 +566,6 @@ cv.addEventListener('pointerup',()=>{
   }
 });
 
-// Page controls
 $('btnAdd').onclick=()=>{
   pages.splice(cur+1,0,newPage());
   cur++;
@@ -582,7 +576,6 @@ $('btnNext').onclick=()=>{if(cur<pages.length-1){cur++;inkDirty=true;draw();updU
 $('btnUndo').onclick=undo;
 $('btnRedo').onclick=redo;
 
-// Menu actions
 $('mClear').onclick=()=>{P().objs=[];snapshot();inkDirty=true;draw();updUI();document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show'))};
 $('mNewBoard').onclick=()=>{if(confirm('Reset everything?')){pages=[newPage()];cur=0;inkDirty=true;draw();updUI();document.querySelectorAll('.pop').forEach(p=>p.classList.remove('show'))}};
 
