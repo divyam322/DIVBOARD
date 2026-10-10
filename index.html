@@ -5,12 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Study Whiteboard</title>
 
-<!-- Supabase JS Client -->
+<!-- Supabase JS Client & Security Guard -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-    // REPLACE THESE WITH YOUR ACTUAL SUPABASE CREDENTIALS
-    const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    const SUPABASE_URL = 'https://yhpschomssrmqzjpvjim.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_me1RxGY1X5AJmF6x4bUvMw__SGGOZQb';
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // Route Guard: If not logged in, bounce back to auth.html
