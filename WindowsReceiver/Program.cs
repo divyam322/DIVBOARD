@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Foundation;
 using Windows.Storage.Streams;
@@ -70,11 +71,11 @@ internal static class Program
         var deferral = args.GetDeferral();
         try
         {
-            var request = args.GetRequest();
+            var request = await args.GetRequestAsync();
             using var reader = DataReader.FromBuffer(request.Value);
             var bytes = new byte[request.Value.Length];
             reader.ReadBytes(bytes);
-            await request.RespondAsync(GattRequestState.Success);
+            request.Respond();
             if (bytes.Length < 5) return;
             int type = bytes[0];
             double x = (bytes[1] | bytes[2] << 8) / 65535.0;
