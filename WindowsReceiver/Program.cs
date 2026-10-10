@@ -83,7 +83,7 @@ internal static class Program
             var message = JsonSerializer.Serialize(new { type = type == 1 ? "start" : type == 3 ? "end" : "point", x, y });
             await Broadcast(message);
         }
-        catch (Exception ex) { Console.WriteLine("BLE packet error: " + ex.Message); }
+        catch (Exception ex) { Console.WriteLine("BLE packet error: " + ex.GetType().FullName + ": " + ex.ToString()); }
         finally { deferral.Complete(); }
     }
 
