@@ -1851,7 +1851,7 @@ function refreshTiles(){
 /* ================= DESKTOP MODE ================= */
 var deskOn=false,deskPage=null;
 const dk={scroll:$('dkScroll'),content:$('dkContent'),stage:$('dkStage'),home:$('dkHome'),top:$('dkTop'),url:$('dkUrl'),nav:$('dkNav'),mode:$('dkMode'),fz:$('dkFreeze')};
-const ENG={wiki:['Wikipedia','https://en.wikipedia.org/w/index.php?search='],google:['Google','https://www.google.com/search?igu=1&q='],bing:['Bing','https://www.bing.com/search?q='],ddg:['DuckDuckGo','https://duckduckgo.com/?q=']};
+const ENG={wiki:['Wikipedia','https://en.wikipedia.org/w/index.php?search='],ddg:['DuckDuckGo','https://html.duckduckgo.com/html/?q='],bing:['Bing','https://www.bing.com/search?q='],google:['Google (often blocked)','https://www.google.com/search?igu=1&q=']};
 ['dkEng','dkHomeEng'].forEach(id=>{const sel=$(id);Object.keys(ENG).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=ENG[k][0];sel.appendChild(o)});sel.onchange=()=>{$('dkEng').value=$('dkHomeEng').value=sel.value}});
 function deskScrolls(pg){return !!(pg.desk&&pg.desk.kind!=='screen')}
 function dkNorm(t,eng){
@@ -1982,7 +1982,7 @@ dk.scroll.addEventListener('scroll',()=>{
 });
 /* home tiles */
 (function(){
-  const T=[['🌐','Wikipedia','https://en.wikipedia.org/wiki/Main_Page'],['🔎','Google','https://www.google.com/webhp?igu=1'],['📚','NCERT','https://ncert.nic.in/'],['📐','GeoGebra','https://www.geogebra.org/classic'],['📈','Desmos','https://www.desmos.com/calculator'],['⚛️','PhET Sims','https://phet.colorado.edu/en/simulations/browse']];
+  const T=[['🌐','Wikipedia','https://en.wikipedia.org/wiki/Main_Page'],['🔎','DuckDuckGo','https://html.duckduckgo.com/html/'],['📚','NCERT','https://ncert.nic.in/'],['📐','GeoGebra','https://www.geogebra.org/classic'],['📈','Desmos','https://www.desmos.com/calculator'],['⚛️','PhET Sims','https://phet.colorado.edu/en/simulations/browse']];
   const box=$('dkTiles');
   T.forEach(([ic,nm,u])=>{const d=document.createElement('div');d.className='dkIcon';d.innerHTML='<i>'+ic+'</i>'+nm;d.onclick=()=>deskOpenUrl(u);box.appendChild(d)});
   const A=[['📄','Open PDF / image',()=>$('dkFile').click()],['🖥️','Share screen / window',deskShare]];
