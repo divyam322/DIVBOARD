@@ -1912,7 +1912,7 @@ function wikiNode(desk){
 function proxyBase(){try{return(localStorage.getItem('wbProxy')||'').replace(/\/+$/,'')}catch(_){return ''}}
 function webSrc(d){const p=proxyBase();return p?p+'/?url='+encodeURIComponent(d.url):d.url}
 function mkNode(desk){
-  if(desk.node)return desk.node;
+  if(desk.node){if(!desk.node.isConnected)(desk.kind==='screen'?dk.stage:dk.content).appendChild(desk.node);return desk.node}
   let n;
   if(desk.kind==='web'){
     n=document.createElement('iframe');n.src=webSrc(desk);n.setAttribute('scrolling','no');n.setAttribute('allow','fullscreen; autoplay; clipboard-write; encrypted-media; picture-in-picture');if(!proxyBase())n.referrerPolicy='no-referrer';n.style.height='12000px';
@@ -1995,11 +1995,13 @@ $('dkFile').onchange=e=>{
 };
 async function deskShare(){
   try{
-    const stream=await navigator.mediaDevices.getDisplayMedia({video:true});
+    const ctl=window.CaptureController?new CaptureController():null;
+    const stream=await navigator.mediaDevices.getDisplayMedia(Object.assign({video:true,audio:false,selfBrowserSurface:'exclude',surfaceSwitching:'include'},ctl?{controller:ctl}:{}));
+    try{if(ctl&&ctl.setFocusBehavior)ctl.setFocusBehavior('no-focus-change')}catch(_){}
     const v=document.createElement('video');v.autoplay=true;v.muted=true;v.playsInline=true;v.srcObject=stream;
     stream.getVideoTracks()[0].onended=()=>toast('Screen sharing stopped');
     deskAttach({kind:'screen',title:'Shared screen',node:v});$('dkFreeze').textContent='⏸ Freeze';
-    toast('Showing your screen. Marks stay fixed on screen - use Freeze to mark a still picture of it',4500);
+    toast('Showing the shared screen. Pick a pen to mark on it. Marks stay fixed on screen; use Freeze to mark a still picture',5000);
   }catch(_){toast('Screen sharing was cancelled or is not supported in this browser')}
 }
 let pdfLib=null;
