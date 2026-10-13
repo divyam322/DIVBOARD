@@ -295,7 +295,7 @@
 </div>
 <input type="file" id="dkFile" accept=".pdf,application/pdf,image/*" style="display:none">
 <canvas id="cv"></canvas>
-<div id="dkTop"><button id="dkHomeBtn" title="Desktop (new page)">⌂</button><button id="dkReload" title="Reload">⟳</button><input id="dkUrl" placeholder="Search or type a website address" autocomplete="off"><select id="dkEng"></select><button id="dkGo">Go</button><button id="dkExt" title="Open in a new browser tab (use this if the page stays blank)">↗</button><button id="dkFreeze" title="Freeze / resume the shared screen" style="display:none">⏸ Freeze</button><span id="dkMode"></span></div>
+<div id="dkTop"><button id="dkHomeBtn" title="Desktop (new page)">⌂</button><button id="dkReload" title="Reload">⟳</button><input id="dkUrl" placeholder="Search or type a website address" autocomplete="off"><select id="dkEng"></select><button id="dkGo">Go</button><button id="dkExt" title="Open in a new browser tab (use this if the page stays blank)">↗</button><button id="dkFreeze" title="Freeze / resume the shared screen" style="display:none">⏸ Freeze</button><button id="dkFollow" title="Marks move when the shared window scrolls" style="display:none">↕ Follow scroll: ON</button><span id="dkMode"></span></div>
 <div id="dkNav"><button id="dkUp" title="Scroll up">▲</button><button id="dkDn" title="Scroll down">▼</button></div>
 <div id="toast"></div>
 <div id="spot"><div id="spotHole"></div></div>
@@ -1929,9 +1929,9 @@ function deskLoad(){
   dk.scroll.style.display=sc?'block':'none';dk.stage.style.display=(d&&d.kind==='screen')?'block':'none';
   dk.top.classList.toggle('on',!!d);dk.nav.classList.toggle('on',sc);
   [...dk.content.children,...dk.stage.children].forEach(n=>n.style.display='none');
-  dk.fz.style.display=(d&&d.kind==='screen')?'':'none';$('dkReload').style.display=(d&&(d.kind==='web'||d.kind==='wiki'))?'':'none';$('dkExt').style.display=(d&&(d.kind==='web'||d.kind==='wiki'))?'':'none';
+  dk.fz.style.display=(d&&d.kind==='screen')?'':'none';$('dkFollow').style.display=(d&&d.kind==='screen')?'':'none';if(d&&d.kind==='screen')$('dkFollow').textContent='↕ Follow scroll: '+(d.follow===false?'OFF':'ON');$('dkReload').style.display=(d&&(d.kind==='web'||d.kind==='wiki'))?'':'none';$('dkExt').style.display=(d&&(d.kind==='web'||d.kind==='wiki'))?'':'none';
   if(d){mkNode(d).style.display='block';dk.url.value=d.kind==='web'?d.url:d.kind==='wiki'?(d.title?'https://'+(d.lang||'en')+'.wikipedia.org/wiki/'+encodeURIComponent(d.title.replace(/ /g,'_')):'Wikipedia search: '+d.q):d.title||''}
-  if(sc){dk.scroll.scrollLeft=-pg.px;dk.scroll.scrollTop=-pg.py}else{pg.px=0;pg.py=0}
+  if(sc){dk.scroll.scrollLeft=-pg.px;dk.scroll.scrollTop=-pg.py}else if(!d||d.kind!=='screen'){pg.px=0;pg.py=0}
   inkDirty=true;draw();applyDeskPE();
 }
 function deskSync(){if(deskOn&&deskPage!==P())deskLoad()}
@@ -1970,7 +1970,7 @@ $('dkExt').onclick=()=>{const d=P().desk;if(!d)return;const u=d.kind==='web'?d.u
 $('dkHomeBtn').onclick=()=>{pages.splice(cur+1,0,newPage());cur++;deskPage=null;inkDirty=true;draw();updUI()};
 $('dkUp').onclick=()=>dk.scroll.scrollBy({top:-innerHeight*.75,behavior:'smooth'});
 $('dkDn').onclick=()=>dk.scroll.scrollBy({top:innerHeight*.75,behavior:'smooth'});
-$('dkFreeze').onclick=()=>{const v=P().desk&&P().desk.node;if(!v)return;if(v.paused){v.play();$('dkFreeze').textContent='⏸ Freeze'}else{v.pause();$('dkFreeze').textContent='▶ Live'}};
+$('dkFreeze').onclick=()=>{const v=P().desk&&P().desk.video;if(!v)return;if(v.paused){v.play();$('dkFreeze').textContent='⏸ Freeze'}else{v.pause();$('dkFreeze').textContent='▶ Live'}};
 $('mFull').onclick=()=>{closePops();document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen()};
 dk.scroll.addEventListener('scroll',()=>{
   if(!deskOn||dk.scroll.style.display==='none')return;
@@ -2000,9 +2000,56 @@ async function deskShare(){
     try{if(ctl&&ctl.setFocusBehavior)ctl.setFocusBehavior('no-focus-change')}catch(_){}
     const v=document.createElement('video');v.autoplay=true;v.muted=true;v.playsInline=true;v.srcObject=stream;
     stream.getVideoTracks()[0].onended=()=>toast('Screen sharing stopped');
-    deskAttach({kind:'screen',title:'Shared screen',node:v});$('dkFreeze').textContent='⏸ Freeze';
+    const wrap=document.createElement('div');wrap.style.cssText='position:relative;width:100%;height:100%';v.style.cssText='position:relative;z-index:1';
+    const hint=document.createElement('div');hint.style.cssText='position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#cde;font:18px Segoe UI,Arial;padding:30px';
+    hint.innerHTML='Waiting for the shared picture…<br><br>If it stays black: go to the shared tab, scroll or click once, then come back.<br>Or press Stop sharing and share a <b>Window</b> instead of a Tab.';
+    wrap.appendChild(hint);wrap.appendChild(v);
+    const gone=()=>{hint.style.display='none'};
+    if(v.requestVideoFrameCallback)v.requestVideoFrameCallback(gone);else v.addEventListener('playing',gone);
+    try{v.play()}catch(_){}
+    const dsk={kind:'screen',title:'Shared screen',node:wrap,video:v,follow:true};deskAttach(dsk);startScrollTrack(v,dsk);stream.getVideoTracks()[0].addEventListener('ended',()=>{dsk.stop=true});$('dkFreeze').textContent='⏸ Freeze';
     toast('Showing the shared screen. Pick a pen to mark on it. Marks stay fixed on screen; use Freeze to mark a still picture',5000);
   }catch(_){toast('Screen sharing was cancelled or is not supported in this browser')}
+}
+$('dkFollow').onclick=()=>{const d=P().desk;if(!d)return;d.follow=d.follow===false;$('dkFollow').textContent='↕ Follow scroll: '+(d.follow===false?'OFF':'ON')};
+/* ---- follow the scrolling of a shared window: estimate vertical movement between video frames ---- */
+function estShift(a,b,W,H){
+  const r0=Math.round(H*.16),r1=Math.round(H*.94),c0=Math.round(W*.06),c1=Math.round(W*.94),M=Math.round(H*.32);
+  const sad=new Float64Array(2*M+1);
+  for(let sh=-M;sh<=M;sh++){
+    let sum=0,n=0;
+    for(let y=r0;y<r1;y++){const y2=y-sh;if(y2<0||y2>=H)continue;const ro=y*W,ro2=y2*W;
+      for(let x=c0;x<c1;x+=2){const d=b[ro+x]-a[ro2+x];sum+=d<0?-d:d;n++}}
+    sad[sh+M]=n>W*8?sum/n:1e9;
+  }
+  const s0=sad[M];let best=0,bv=s0;
+  for(let i=0;i<sad.length;i++){const pv=sad[i]*(1+.004*Math.abs(i-M));if(sad[i]<1e8&&pv<bv){bv=pv;best=i-M}}
+  if(best===0||s0<1.2||bv>s0*.6)return 0;
+  const l=sad[best+M-1],c=sad[best+M],r=sad[best+M+1];let off=0;
+  if(l<1e8&&r<1e8){const den=l-2*c+r;if(den>0)off=Math.max(-.5,Math.min(.5,.5*(l-r)/den))}
+  return best+off;
+}
+function startScrollTrack(v,desk){
+  const AW=320,cvs=document.createElement('canvas'),g=cvs.getContext('2d',{willReadFrequently:true});let prev=null,last=0;
+  const step=now=>{
+    if(desk.stop)return;
+    try{
+      now=performance.now();
+      const active=desk.follow!==false&&!v.paused&&v.videoWidth&&deskOn&&P().desk===desk;
+      if(!active)prev=null;
+      else if(now-last>28){
+        last=now;const AH=Math.round(AW*v.videoHeight/v.videoWidth);
+        if(cvs.width!==AW||cvs.height!==AH){cvs.width=AW;cvs.height=AH;prev=null}
+        g.drawImage(v,0,0,AW,AH);const d=g.getImageData(0,0,AW,AH).data,gray=new Uint8Array(AW*AH);
+        for(let i=0,j=0;i<d.length;i+=4,j++)gray[j]=(d[i]*77+d[i+1]*151+d[i+2]*28)>>8;
+        if(prev){const sh=estShift(prev,gray,AW,AH);
+          if(sh){const sc=Math.min(dk.stage.clientWidth/v.videoWidth,dk.stage.clientHeight/v.videoHeight);P().py+=sh*(v.videoHeight/AH)*sc;inkDirty=true;draw()}}
+        prev=gray;
+      }
+    }catch(_){}
+    if(v.requestVideoFrameCallback)v.requestVideoFrameCallback(step);else requestAnimationFrame(step);
+  };
+  if(v.requestVideoFrameCallback)v.requestVideoFrameCallback(step);else requestAnimationFrame(step);
 }
 let pdfLib=null;
 function loadPdfJs(){
